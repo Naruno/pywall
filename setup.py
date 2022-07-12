@@ -50,7 +50,8 @@ optional arguments:
     packages=["pywall"],
     package_dir={'':'src'},
     install_requires=[
-        "scapy==2.4.5"
+        "scapy==2.4.5",
+        "cryptography==36.0.2"
     ],
     entry_points = {
         'console_scripts': ['pywall=pywall.pywall:arguments'],
