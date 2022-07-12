@@ -13,7 +13,7 @@ import time
 
 class pywall:
 
-    def __init__(self, iface="wlan0", timeout=15):
+    def __init__(self, iface=None, timeout=15):
         self.iface = iface
         self.timeout = timeout
 
