@@ -1,1 +1,2 @@
 scapy==2.4.5
+cryptography==36.0.2
