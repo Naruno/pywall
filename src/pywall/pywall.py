@@ -7,86 +7,75 @@
 
 
 from scapy.all import srp, ARP, Ether, sniff
-import argparse
-import time
+from argparse import ArgumentParser
 
 
 class pywall:
-
-    def __init__(self, iface="wlan0", timeout=15):
+    def __init__(self, iface=None, timeout=15):
         self.iface = iface
         self.timeout = timeout
-
-    
+        self.arp_spoofing_detected = None
 
     def get_mac_address(self, target):
-            """
-            Get mac address of target
-            """
-            result = srp(Ether(dst="ff:ff:ff:ff:ff:ff")/ARP(pdst=target), timeout=3, verbose=0)[0]
-            result  = [received.hwsrc for sent, received in result]
-
+        """
+        Get mac address of target
+        """
+        result = srp(
+            Ether(dst="ff:ff:ff:ff:ff:ff") / ARP(pdst=target), timeout=3, verbose=0
+        )[0]
+        result = [received.hwsrc for sent, received in result]
 
     def arp_spoofing_detection(self):
-            """
-            Detect arp spoofing
-            """
+        """
+        Detect arp spoofing
+        """
 
-            global arp_spoofing_detected
-            arp_spoofing_detected = None
+        def __control(packet):
+            return self.arp_spoofing_detected is not None
 
-            def control(packet):
-                global arp_spoofing_detected
-                if arp_spoofing_detected is not None:
-                    return True
-                else:
-                    return False
-                
+        def __process_sniffed_packet(packet):
+            if packet.haslayer(ARP) and packet[ARP].op == 2:
+                real_mac = self.get_mac_address(packet[ARP].psrc)
+                response_mac = packet[ARP].hwsrc
+                self.arp_spoofing_detected = real_mac != response_mac
 
-            def process_sniffed_packet(packet):
-                global arp_spoofing_detected
-                if packet.haslayer(ARP) and packet[ARP].op == 2:
-                    real_mac = self.get_mac_address(packet[ARP].psrc)
-                    response_mac = packet[ARP].hwsrc
-                    if real_mac != response_mac:
-                        arp_spoofing_detected = True
-                    else:
-                        arp_spoofing_detected = False
+        sniff(
+            iface=self.iface,
+            store=False,
+            stop_filter=__control,
+            prn=__process_sniffed_packet,
+            timeout=self.timeout,
+        )
 
-
-            sniff(iface=self.iface, store=False, stop_filter=control,  prn=process_sniffed_packet, timeout=self.timeout)
-
-            
-            return arp_spoofing_detected
-
+        return self.arp_spoofing_detected
 
     def control(self):
-            """
-            Main function
-            """
+        """
+        Main function
+        """
 
-            return self.arp_spoofing_detection()
+        return self.arp_spoofing_detection()
+
 
 def arguments():
-            """
-            Main function
-            """
+    """
+    Main function
+    """
 
-            parser = argparse.ArgumentParser()
-            parser.add_argument('-i', '--iface', type=str, help='Interface')
-            parser.add_argument('-t', '--timeout', type=int, help='Timeout')
+    parser = ArgumentParser()
+    parser.add_argument("-i", "--iface", type=str, help="Interface")
+    parser.add_argument("-t", "--timeout", type=int, help="Timeout")
 
+    args = parser.parse_args()
 
-            args = parser.parse_args()
+    the_pywall = pywall()
 
-            the_pywall = pywall()
+    if args.iface is not None:
+        the_pywall.iface = args.iface
+    if args.timeout is not None:
+        the_pywall.timeout = args.timeout
 
-            if args.iface is not None:
-                the_pywall.iface = args.iface
-            if args.timeout is not None:
-                the_pywall.timeout = args.timeout
-
-            print(the_pywall.control())
+    print(the_pywall.control())
 
 
 if __name__ == "__main__":
